@@ -1,0 +1,30 @@
+---
+title: "Homework Week 48"
+output: html_document
+date: "2022-11-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Taks 1
+
+First i make sure that the package tidyverse is activated
+```{r}
+library(tidyverse)
+```
+Then i'll load my dataset, which I have moved to my files
+```{r}
+regents <- read_csv2("data/kongerækken.csv")
+```
+Then i have to create a vizualization in ggplot
+
+```{r}
+regents %>%
+  mutate(Regents_Name = reorder(Regents_Name, Length_of_reign)) %>% 
+  ggplot(aes(x = Length_of_reign, y = Regents_Name)) +
+  geom_col()
+```
+
+I first use mutate() to sort the regents by the duration of their reign, then i use ggplot() to tell which coloumns from my data fram I want on which axis, and then I use geom_com() to make sure that i get the visualization og the length of reign in columns.
