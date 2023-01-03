@@ -1,0 +1,380 @@
+---
+title: "ArabianNights"
+output: html_document
+date: "2022-12-07"
+---
+
+# Textmining in The Arabian Nights
+
+To create my project I need different packages. Below you can see then ones I have used:
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+library(tidytext)
+library(textdata) 
+library(ggwordcloud)
+library(gutenbergr)
+library(igraph)
+library(ggraph)
+library(ggplot2)
+```
+I found the gutenbergr package installation guide here: https://www.rdocumentation.org/packages/gutenbergr/versions/0.2.1 
+I found the ggraph package installation guide here:
+https://www.rdocumentation.org/packages/ggraph/versions/0.1.1
+
+### Download data
+
+I then use the gutenbergr package to first locate the gutenberg_id and then download the 10 volumes of Arabian Nights. I do that for each of the volumes seperately:
+```{r data download1}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 01 (of 17)")
+
+arabian_nights_vol1 <- gutenberg_download(51252)
+```
+
+```{r data download2}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 02 (of 17)")
+
+arabian_nights_vol2 <- gutenberg_download(51775)
+```
+
+```{r data download3}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 03 (of 17)")
+
+arabian_nights_vol3 <- gutenberg_download(52564)
+```
+
+```{r data download4}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 04 (of 17)")
+
+arabian_nights_vol4 <- gutenberg_download(53254)
+```
+
+```{r data download5}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 05 (of 17)")
+
+arabian_nights_vol5 <- gutenberg_download(54257)
+```
+
+```{r data download6}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 06 (of 17)")
+
+arabian_nights_vol6 <- gutenberg_download(54525)
+```
+
+```{r data download7}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 07 (of 17)")
+
+arabian_nights_vol7 <- gutenberg_download(54778)
+```
+
+```{r data download8}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night Volume 08 (of 17)")
+
+arabian_nights_vol8 <- gutenberg_download(55091)
+```
+
+```{r data download9}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 09 (of 17)")
+
+arabian_nights_vol9 <- gutenberg_download(55587)
+```
+
+```{r data download10}
+gutenberg_works(title == "A Plain and Literal Translation of the Arabian Nights Entertainments, Now Entituled the Book of the Thousand Nights and a Night, Volume 10 (of 17)")
+
+arabian_nights_vol10 <- gutenberg_download(58360)
+```
+
+### Prep Data
+Then I combine all the ten volumes in to one single dataframe:
+```{r create dataframe}
+an_df <- do.call("rbind", list(arabian_nights_vol1, arabian_nights_vol2, arabian_nights_vol3, arabian_nights_vol4, arabian_nights_vol5, arabian_nights_vol6, arabian_nights_vol7, arabian_nights_vol8, arabian_nights_vol9, arabian_nights_vol10))
+```
+The code I have used to do that, I have found here: https://medium.com/coinmonks/merging-multiple-dataframes-in-r-72629c4632a3
+
+In the dataframe there is a lot of text, that aren't part of the stories that are Arabian Nights. To get the most accurate result I'll try to trim most of the excessive text away, but it is has to pick out in such a large text. I'll be doing the trimming by cutting out specific rows from my data.frame:
+```{r trim dataframe}
+an_df_tidy <- an_df[-c(1:780, 1545:1844, 2268:2437, 3866:4536, 7995:9555, 9846:9913, 11869:12845, 15962:18806, 151902:189676, 148281:150158, 131077:133627, 114421:116373, 97810:99392, 83707:85877, 65031:66536, 48903:51794),]
+```
+The code I have used to remove rows, I have found here:https://sparkbyexamples.com/r-programming/drop-dataframe-rows-in-r/
+
+I'm interested in playing around with the frequency of words in Arabian Nights. The first thing I have to do, to be able to look at that, is to tokenize the dataframe, so every word gets it's own row in a dataframe:
+```{r tokenize dataframe}
+an_tokens <- an_df_tidy %>% 
+  unnest_tokens(word, text)
+```
+
+Now I can count how many there are of each word, and sort them after the most frequent one:
+```{r word count1}
+an_wc <- an_tokens %>% 
+  count(word) %>% 
+  arrange(-n)
+```
+
+
+
+Then I can add the stopwords list:
+```{r stopword list1}
+an_stop <- an_tokens %>% 
+  anti_join(stop_words)
+```
+
+Then I count and sort the words again:
+```{r word count2}
+an_swc <- an_stop %>% 
+  count(word) %>% 
+  arrange(-n)
+```
+
+Because the book was written in the 19th century, there are a lot of old words, that is not on the stopword list, but should still be removed for practicality's sake. Therefore I'll make my own stopword list, to also add to the dataframe:
+```{r costumize stopword list}
+my_stop_words <- data.frame(word = c("thou", "thee", "thy", "till", "hath", "quoth", "footnote", "answered", "replied", "set", "al", "arab", "ye"))
+```
+
+Now I load the newly created stopword list into the dataframe, that already has the preexisting one:
+```{r stopword list2}
+an_stop_new <- an_stop %>% 
+  anti_join(my_stop_words)
+```
+
+Then I count and sort the words again:
+```{r word count3}
+an_twc <- an_stop_new %>% 
+  count(word) %>% 
+  arrange(-n)
+```
+
+### Wordcloud
+I will now make a wordcloud with the most frequent words in Arabian Nights. The first thing I want to do is to filter out any numbers from the text, by doing this:
+```{r filter out numbers}
+an_no_numeric <- an_stop_new %>% 
+  filter(is.na(as.numeric(word)))
+```
+
+```{r number of unique words}
+length(unique(an_no_numeric$word))
+```
+By using this code I can see that there are over 33.000 unique words in Arabian Nights. That is too many to fit into one wordcloud, so I want to limit the number of words in the wordcloud to 100.
+
+I limit the number of words in the wordcloud by doing this:
+```{r limit words used}
+an_top100 <- an_no_numeric %>% 
+  count(word) %>% 
+  arrange(-n) %>% 
+  head(100)
+```
+
+Now I make a wordcloud based on the new dataframe, I just created, with only the 100 most frequent words in Arabian Nights:
+```{r wordcloud}
+ggplot(data = an_top100, aes(label = word, size = n)) +
+  geom_text_wordcloud_area(aes(color = n), shape = "diamond") +
+  scale_size_area(max_size = 12) +
+  scale_color_gradientn(colors = c("#72286F","darkred","#CF2129")) +
+  theme_minimal()
+```
+I can then see that the most frequent word is "king", but it is worth noting that words like "love" and "wife" also is on the list of the 100 most frequent words in Arabian Nights, and that is words that would be interesting to take a little closer look at.
+
+### Sentiment Analysis
+First I'll do a sentiment analysis on Arabian Nights. My analysis will focus on the "nrc" lexicon, so I have to load the lexicon:
+```{r lexicon}
+get_sentiments(lexicon = "nrc")
+```
+**Citation for NRC lexicon**: Crowdsourcing a Word-Emotion Association Lexicon, Saif Mohammad and Peter Turney, Computational Intelligence, 29 (3), 436-465, 2013.
+
+Then I'll create a new dataframe where I add the lexicon to my existing dataframe:
+```{r add lexicon to dataframe}
+an_nrc <- an_stop_new %>% 
+  inner_join(get_sentiments("nrc"))
+```
+
+By binding the lexicon to the dataframe, that'll exclude words, that don't have a "sentiment" value. It is smart to just have a look at which words it excludes:
+```{r excluded words}
+an_exclude <- an_stop_new %>% 
+  anti_join(get_sentiments("nrc"))
+
+an_exclude_n <- an_exclude %>% 
+  count(word, sort = TRUE)
+
+head(an_exclude_n)
+```
+It is interesting that a word like "allah" has been excluded, you would think that it has a "sentiment" value.
+
+Now I count how many words fit into each of the 10 different "sentiment" categories, and then I plot them:
+
+```{r number of words in each sentiment}
+an_nrc_n <- an_nrc %>% 
+  count(sentiment, sort = TRUE)
+
+ggplot(data = an_nrc_n, aes(x = sentiment, y = n)) +
+  geom_bar(stat = "identity", color = "darkred", fill = "#D60103") + 
+  theme_light() +
+  ggtitle("Number of words by sentiment") +
+  xlab("Sentiment") + ylab("Number of words")
+```
+
+From this I can see that there are a lot of words that are of a positive "sentiment".
+
+Since I'm interested in looking at words like "love" and others that are related to it. I'm first going to find out which "sentiment" categories that the word "love" is in:
+```{r love as a sentiment}
+love <- get_sentiments(lexicon = "nrc") %>% 
+  filter(word == "love", ignore_case = TRUE)
+
+love
+```
+
+I can now see that the word "love" is both in the category of "joy" and "positive". Therefore I want to take a closer look at those two categories, to see which other words are in them, and if they are relevant for my project. I'll focus on "joy" first:
+
+The first step is to create a new dataframe that only contains the words in the "joy" category:
+```{r new dataframe1}
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+```
+
+Then I count the words, and sort them by most frequent. I also limit them to only the 15 most frequent. I then plot thos 15 words, and order them by frequency:
+```{r most frequent joy words}
+nrc_joy_sort <- an_stop_new %>% 
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE) %>% 
+  head(15)
+
+ggplot(data = nrc_joy_sort, aes(x = reorder(word, -n), y = n)) +
+  geom_bar(stat = "identity", color = "darkred", fill = "#D60103") + 
+  theme_light() +
+  ggtitle("Frequency of words in 'joy' sentiment") +
+  xlab("Word") + ylab("Number of words")
+```
+It's interesting to see, that apart from "love", words like "youth" and "beauty" are also relatively frequent.
+
+Now I'll do the same for the category "positive". I first create a new dataframe:
+```{r new dataframe2}
+nrc_positive <- get_sentiments("nrc") %>% 
+  filter(sentiment == "positive")
+```
+
+Then I count the words, and sort them by most frequent. I also limit them to only the 15 most frequent. I then plot those 15 words, and order them by frequency:
+```{r most frequent positive words}
+nrc_positive_sort <- an_stop_new %>% 
+  inner_join(nrc_positive) %>%
+  count(word, sort = TRUE) %>% 
+  head(15)
+
+ggplot(data = nrc_positive_sort, aes(x = reorder(word, -n), y = n)) +
+  geom_bar(stat = "identity", color = "darkred", fill = "#D60103") + 
+  theme_light() +
+  ggtitle("Frequency of words in 'positive' sentiment") +
+  xlab("Word") + ylab("Number of words")
+```
+Here we can see, that the word "king" is much more frequent than any of the other positive words.
+
+### Word frequency by night
+Now I'll take a look at figuring out more precisely where words I find relevant for my paper is the most frequent. Then I can hopefully use it, to find the most ideal tales, to read. In that way I'll be able to save my self some time:
+
+First up I want to split the book up into smaller sections, to get the most precise results, when I look for where in Arabian Nights I can find a high frequency of words.
+I would have liked to split it by the separate tales, but have unfortunately not been able to come up with a regex that captured all the tales. I have instead been able to split it by the separate nights, this way:
+```{r split book into sections}
+an_df_tidy %>% 
+  mutate(
+    linenumber = row_number()) %>% 
+  filter(str_detect(text, regex("Now when it w*as the .+ Night", ignore_case = TRUE)))
+```
+When you run this, you should get a tibble, that has a 1000 rows. I can only capture 1000 nights, since the first night isn't written out, so it is as close as I can get.
+
+I now make it into a new dataframe, where each night has a number associated with it:
+```{r new dataframe3}
+tidy_stories <- an_df_tidy %>% 
+  mutate(linenumber = row_number(), chapter = cumsum(str_detect(text, regex("Now when it w*as the .+ Night", ignore_case = TRUE)))) 
+```
+It is important to note that the first story has the number "0" and the second story has the number "1" and so on. Therefore to get the correct night, you have to take the number you get in the code, and subtract 1 from it.
+When I find out which nights the words are most frequent in, then I can look up which story the night belongs to, and then read it. I can find a list over stories, with night numbers here: https://en.wikipedia.org/wiki/List_of_stories_within_One_Thousand_and_One_Nights
+
+Now I want to find out which night has the most frequent use of the word "love". I have made the regex i'm looking for "love", instead of "\\blove\\b", because then I also get words like "lovers" and "lovely". I have also limited the number of nights I get to 15, so I can see the 15 nights that have the most frequent use of variations of the word "love":
+```{r frequency of love}
+tidy_love <- tidy_stories %>% 
+  filter(str_detect(text, regex("love", ignore_case = TRUE))) %>% 
+  count(chapter, sort = TRUE) %>% 
+  head(20)
+```
+
+Then I plot it:
+```{r plot}
+tidy_love %>% 
+  ggplot(aes(x = reorder(chapter, -n), y = n)) + 
+  geom_bar(stat = "identity", color = "darkred", fill = "#D60103") + 
+  theme_light() +
+  ggtitle("Nights with the most frequent use of variation of the word 'love'") +
+  xlab("Night") + ylab("Number of words")
+```
+Here I can see that night 844, is the night where there is the most frequent use of the word "love". That is the tale of Khalifah The Fisherman Of Baghdad.
+
+Another word, or variations of a word, that i would like to have a look at is "marr". So I'm just going to repeat the two previous steps and replace "love" with "marr"
+
+```{r frequency of marr}
+tidy_marr <- tidy_stories %>% 
+  filter(str_detect(text, regex("marr", ignore_case = TRUE))) %>% 
+  count(chapter, sort = TRUE) %>% 
+  head(20)
+
+tidy_marr %>% 
+  ggplot(aes(x = reorder(chapter, -n), y = n)) + 
+  geom_bar(stat = "identity", color = "darkred", fill = "#D60103") + 
+  theme_light() +
+  ggtitle("Nights with the most frequent use of variation of the word 'marr'") +
+  xlab("Night") + ylab("Number of words")
+```
+Here I can see that night 976, is the night where there is the most frequent use of the word "love". That is the tale of Kamar Al-Zaman and the Jeweller's Wife.
+
+### Term frequency analysis
+This is of course one way to look at word frequency, but it would be more ideal to look at the number of one specific word, in relation to the total number of words in one night. To do that i will have to do a term frequency analysis, which I have found here: https://www.tidytextmining.com/tfidf.html
+
+The first step is to once again tokenize the dataframe. This time I tokenize the dataframe, where each night has a number assigned. I also count all the words, but this time they are split by night number(chapter)
+```{r tokenize}
+tidy_stories_untoken <- tidy_stories %>% 
+  unnest_tokens(word, text) %>% 
+  count(chapter, word, sort = TRUE)
+```
+
+Then I count how many words are in each night(chapter)
+```{r word count4}
+total_words_stories <- tidy_stories_untoken%>% 
+  group_by(chapter) %>% 
+  summarize(total = sum(n))
+```
+
+Then I join those different counts in to a new dataframe, that then contains "chapter", "word", "n" and "total"
+```{r new dataframe4}
+chapter_words <- left_join(tidy_stories_untoken, total_words_stories)
+```
+
+Lastly I want to calculate the percentage of words in a night, that are the word I'm looking for. I do that by first filtering after my desired word. Then by using the mutate() function a create a new column where I can calculate the frequency of a word in percent. By arranging the rows based on frequency, I can then see which night has the highest percentage of words, which is the word I'm looking for:
+```{r word frequency}
+chapter_words %>% 
+  filter(str_detect(word, regex("love", ignore_case = TRUE))) %>% 
+  mutate(frequency =((n/total)*100)) %>%
+  arrange(desc(frequency))
+```
+In this way I can see that the night, which has the most words being "love" in relation to the total number of words in the night is 854. That is the tale of Ibrahim and Jamilah.
+
+### If a word appears
+It would also be interesting to have a look at the word sex. Instead of repeating the previous steps, I fist want to know if the word even appears in Arabian Nights:
+```{r sex}
+tidy_stories %>% 
+  filter(str_detect(text, regex("sex", ignore_case = TRUE)))
+```
+By just looking for it this way, I'm able to see it in the context of the line it appears in. By taking a quick look, it seems that the word "sex" mainly appears in the relation to gender and in some of the footnotes, I haven't been able to trim away.
+
+A word that I know is often used as a metaphor i relation to sex and the womans body is "pomegranate". I'm going to look at is the same way I did sex, to see if that is also the case in Arabian Nights:
+```{r pomegranate}
+tidy_stories %>% 
+  filter(str_detect(text, regex("pomegranate", ignore_case = TRUE)))
+```
+From this I can see that the word "pomegranate" in different variations shows up in Arabian Nights 68 times. By looking at the words in the context of the line, it looks like it is mainly non-sexual, but there are definitely some examples of using it as sexual metaphors.
+
+### Session info
+```{r}
+sessionInfo()
+```
+
+
+
